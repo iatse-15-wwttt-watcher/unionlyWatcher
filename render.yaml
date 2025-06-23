@@ -1,0 +1,12 @@
+services:
+  - type: cron
+    name: unionly-watcher
+    schedule: "*/15 * * * *"  # every 15 minutes
+    runtime: node
+    buildCommand: "npm install"
+    startCommand: "node index.js"
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        value: 7992981770:AAELMk82-EnBgxj855lgdOUR6jP4kaVQUeM
+      - key: TELEGRAM_CHAT_ID
+        value: 114562824
