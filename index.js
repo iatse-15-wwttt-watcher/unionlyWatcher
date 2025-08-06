@@ -152,7 +152,7 @@ async function scrapeTheatricalTraining(seenSet, newItems) {
   try {
     const res = await axios.get('https://theatricaltraining.com/#thecalendar');
     const $ = cheerio.load(res.data);
-    const headers = $('a.ee-event-header-lnk');
+    const headers = $('div.ee-event-header-lnk');
 
     console.log(`Found ${headers.length} items on TheatricalTraining.org:`);
 
