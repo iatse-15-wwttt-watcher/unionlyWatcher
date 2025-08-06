@@ -18,8 +18,8 @@ async function fetchSeenItems() {
     const content = res.data.files[GIST_FILENAME].content;
     const parsed = JSON.parse(content);
     return {
-      unionly: new Set(parsed.unionly || []),
-      theatrical: new Set(parsed.theatrical || [])
+      unionly: new Set(Array.isArray(parsed.unionly) ? parsed.unionly : []),
+      theatrical: new Set(Array.isArray(parsed.theatrical) ? parsed.theatrical : [])
     };
   } catch (err) {
     console.error('Failed to fetch seen items from Gist:', err.message);
@@ -71,8 +71,11 @@ async function scrapeUnionly(seenSet, newItems) {
     const $ = cheerio.load(res.data);
     const productDivs = $('div.w-full.max-w-sm.mx-auto.rounded-md.shadow-md.overflow-hidden');
 
+    console.log(`Found ${productDivs.length} items on Unionly:`);
+
     productDivs.each((i, el) => {
       const text = $(el).text().trim().substring(0, 50);
+      console.log(`- ${text}`);
       if (!seenSet.has(text)) {
         seenSet.add(text);
         newItems.push(text);
@@ -89,8 +92,11 @@ async function scrapeTheatricalTraining(seenSet, newItems) {
     const $ = cheerio.load(res.data);
     const headers = $('div.ee-event-header-lnk');
 
+    console.log(`Found ${headers.length} items on TheatricalTraining.org:`);
+
     headers.each((i, el) => {
       const text = $(el).text().trim().substring(0, 50);
+      console.log(`- ${text}`);
       if (!seenSet.has(text)) {
         seenSet.add(text);
         newItems.push(text);
