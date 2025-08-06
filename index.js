@@ -6,7 +6,7 @@ const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 const GIST_TOKEN = process.env.GIST_TOKEN;
 const GIST_ID = '21539a315a95814d617a76c3e80f2622';
 const GIST_FILENAME = 'seenItems.json';
-let newItems;
+let newItems = [];
 
 async function fetchSeenItems() {
   try {
