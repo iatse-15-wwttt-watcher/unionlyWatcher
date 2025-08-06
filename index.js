@@ -17,9 +17,11 @@ async function fetchSeenItems() {
     });
     const content = res.data.files[GIST_FILENAME].content;
     const parsed = JSON.parse(content);
+    const unionlyItems = parsed && Array.isArray(parsed.unionly) ? parsed.unionly : [];
+    const theatricalItems = parsed && Array.isArray(parsed.theatrical) ? parsed.theatrical : [];
     return {
-      unionly: new Set(Array.isArray(parsed.unionly) ? parsed.unionly : []),
-      theatrical: new Set(Array.isArray(parsed.theatrical) ? parsed.theatrical : [])
+      unionly: new Set(unionlyItems),
+      theatrical: new Set(theatricalItems)
     };
   } catch (err) {
     console.error('Failed to fetch seen items from Gist:', err.message);
@@ -50,6 +52,11 @@ async function updateSeenItems(unionlySet, theatricalSet) {
 }
 
 async function sendTelegramMessage(message) {
+  if (!message || !TELEGRAM_CHAT_ID || !TELEGRAM_BOT_TOKEN) {
+    console.error('Missing message content or Telegram credentials. Skipping Telegram message.');
+    return;
+  }
+
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
   const payload = {
     chat_id: TELEGRAM_CHAT_ID,
@@ -62,6 +69,9 @@ async function sendTelegramMessage(message) {
     console.log('Telegram message sent');
   } catch (err) {
     console.error('Telegram error:', err.message);
+    if (err.response?.data) {
+      console.error('Telegram response:', JSON.stringify(err.response.data));
+    }
   }
 }
 
