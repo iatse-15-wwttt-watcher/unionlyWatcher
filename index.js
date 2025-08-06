@@ -177,6 +177,7 @@ async function scrapeAndNotify() {
     const msgBody = `*Unionly Items:*\n${newUnionly.map(i => `- ${i}`).join('\n') || 'None'}\n\n*TheatricalTraining.org Items:*\n${newTheatrical.map(i => `- ${i}`).join('\n') || 'None'}`;
     await sendTelegramMessage(msgBody);
     await updateSeenItems(unionly, theatrical);
+    updateSeenItems?{console.log(updateSeenItems)}:"";
   } else {
     console.log('No new items found.');
   }
