@@ -16,14 +16,18 @@ async function fetchSeenItems() {
       }
     });
     const content = res.data.files[GIST_FILENAME].content;
-    let parsed = {};
+    let parsed;
     try {
       parsed = JSON.parse(content);
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        throw new Error('Parsed content is not a valid object');
+      }
     } catch (parseErr) {
-      console.warn('Gist content is not valid JSON. Initializing empty object.');
+      console.warn('Gist content is not valid object JSON. Initializing empty object.');
+      parsed = { unionly: [], theatrical: [] };
     }
-    const unionlyItems = parsed && Array.isArray(parsed.unionly) ? parsed.unionly : [];
-    const theatricalItems = parsed && Array.isArray(parsed.theatrical) ? parsed.theatrical : [];
+    const unionlyItems = Array.isArray(parsed.unionly) ? parsed.unionly : [];
+    const theatricalItems = Array.isArray(parsed.theatrical) ? parsed.theatrical : [];
     return {
       unionly: new Set(unionlyItems),
       theatrical: new Set(theatricalItems)
