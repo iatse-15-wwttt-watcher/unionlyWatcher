@@ -7,6 +7,25 @@ const GIST_TOKEN = process.env.GIST_TOKEN;
 const GIST_ID = '21539a315a95814d617a76c3e80f2622';
 const GIST_FILENAME = 'seenItems.json';
 
+async function resetGistFile() {
+  const resetContent = JSON.stringify({ unionly: [], theatrical: [] }, null, 2);
+  try {
+    await axios.patch(`https://api.github.com/gists/${GIST_ID}`, {
+      files: {
+        [GIST_FILENAME]: { content: resetContent }
+      }
+    }, {
+      headers: {
+        Authorization: `Bearer ${GIST_TOKEN}`,
+        Accept: 'application/vnd.github+json'
+      }
+    });
+    console.warn('Gist file reset to default structure.');
+  } catch (err) {
+    console.error('Failed to reset Gist file:', err.message);
+  }
+}
+
 async function fetchSeenItems() {
   try {
     const res = await axios.get(`https://api.github.com/gists/${GIST_ID}`, {
@@ -19,18 +38,23 @@ async function fetchSeenItems() {
     let parsed;
     try {
       parsed = JSON.parse(content);
-      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-        throw new Error('Parsed content is not a valid object');
+      if (
+        typeof parsed !== 'object' ||
+        parsed === null ||
+        Array.isArray(parsed) ||
+        !Array.isArray(parsed.unionly) ||
+        !Array.isArray(parsed.theatrical)
+      ) {
+        throw new Error('Parsed content is not a valid object structure');
       }
     } catch (parseErr) {
-      console.warn('Gist content is not valid object JSON. Initializing empty object.');
+      console.warn('Gist content is invalid or malformed. Attempting to reset.');
+      await resetGistFile();
       parsed = { unionly: [], theatrical: [] };
     }
-    const unionlyItems = Array.isArray(parsed.unionly) ? parsed.unionly : [];
-    const theatricalItems = Array.isArray(parsed.theatrical) ? parsed.theatrical : [];
     return {
-      unionly: new Set(unionlyItems),
-      theatrical: new Set(theatricalItems)
+      unionly: new Set(parsed.unionly),
+      theatrical: new Set(parsed.theatrical)
     };
   } catch (err) {
     console.error('Failed to fetch seen items from Gist:', err.message);
@@ -58,6 +82,10 @@ async function updateSeenItems(unionlySet, theatricalSet) {
   } catch (err) {
     console.error('Failed to update seen items Gist:', err.message);
   }
+}
+
+function escapeMarkdown(text) {
+  return text.replace(/([_\*\[\]\(\)~`>#+\-=|{}.!])/g, '\\$1');
 }
 
 async function sendTelegramMessage(message) {
@@ -97,7 +125,7 @@ async function scrapeUnionly(seenSet, newItems) {
       const text = $(el).text().trim().replace(/\s+/g, ' ').substring(0, 100);
       const href = $(el).find('a').attr('href');
       const link = href ? `https://unionly.io${href}` : '';
-      const entry = link ? `[${text}](${link})` : text;
+      const entry = link ? `[${escapeMarkdown(text)}](${link})` : escapeMarkdown(text);
       console.log(`- ${entry}`);
       if (!seenSet.has(entry)) {
         seenSet.add(entry);
@@ -122,7 +150,7 @@ async function scrapeTheatricalTraining(seenSet, newItems) {
       const cleaned = rawText.replace(/[\n\t]+/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 100);
       const href = $(el).find('a').attr('href');
       const link = href ? `https://theatricaltraining.com${href}` : '';
-      const entry = link ? `[${cleaned}](${link})` : cleaned;
+      const entry = link ? `[${escapeMarkdown(cleaned)}](${link})` : escapeMarkdown(cleaned);
       console.log(`- ${entry}`);
       if (!seenSet.has(entry)) {
         seenSet.add(entry);
