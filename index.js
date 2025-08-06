@@ -126,7 +126,7 @@ async function scrapeTheatricalTraining(seenSet, newItems) {
       const href = $(el).attr('href');
       if (!href) return;
 
-      const link = `https://theatricaltraining.com${href}`;
+      const link = `${href}`;
       const entry = `[${escapeMarkdown(text)}](${link})`;
 
       if (!seenSet.has(entry)) {
