@@ -7,6 +7,11 @@ const GIST_TOKEN = process.env.GIST_TOKEN;
 const GIST_ID = '21539a315a95814d617a76c3e80f2622';
 const GIST_FILENAME = 'seenItems.json';
 
+function getTimestampedEntry(entry) {
+  const timestamp = new Date().toISOString();
+  return `${entry} (added ${timestamp})`;
+}
+
 async function resetGistFile() {
   const resetContent = JSON.stringify({ unionly: [], theatrical: [] }, null, 2);
   try {
@@ -88,7 +93,7 @@ async function updateSeenItems(unionlySet, theatricalSet) {
 }
 
 function escapeMarkdown(text) {
-  return text.replace(/([_\-*\[\]()~`>#+=|{}.!])/g, '\\$1');
+  return text.replace(/([_\-\*\[\]()~`>#+=|{}.!])/g, '\\$1');
 }
 
 async function sendTelegramMessage(message) {
@@ -130,11 +135,12 @@ async function scrapeUnionly(seenSet, newItems) {
       const cleaned = rawText.replace(/[\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
       const href = $(el).find('a').attr('href');
       const link = href ? `https://unionly.io${href}` : '';
-      const entry = link ? `[${escapeMarkdown(cleaned)}](${link})` : escapeMarkdown(cleaned);
-      console.log(`- ${entry}`);
-      if (!seenSet.has(entry)) {
-        seenSet.add(entry);
-        newItems.push(entry);
+      const entryText = link ? `[${escapeMarkdown(cleaned)}](${link})` : escapeMarkdown(cleaned);
+      const fullEntry = getTimestampedEntry(entryText);
+      console.log(`- ${fullEntry}`);
+      if (!seenSet.has(fullEntry)) {
+        seenSet.add(fullEntry);
+        newItems.push(fullEntry);
       }
     });
   } catch (err) {
@@ -155,11 +161,12 @@ async function scrapeTheatricalTraining(seenSet, newItems) {
       const cleaned = rawText.replace(/[\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
       const href = $(el).find('a').attr('href');
       const link = href ? `https://theatricaltraining.com${href}` : '';
-      const entry = link ? `[${escapeMarkdown(cleaned)}](${link})` : escapeMarkdown(cleaned);
-      console.log(`- ${entry}`);
-      if (!seenSet.has(entry)) {
-        seenSet.add(entry);
-        newItems.push(entry);
+      const entryText = link ? `[${escapeMarkdown(cleaned)}](${link})` : escapeMarkdown(cleaned);
+      const fullEntry = getTimestampedEntry(entryText);
+      console.log(`- ${fullEntry}`);
+      if (!seenSet.has(fullEntry)) {
+        seenSet.add(fullEntry);
+        newItems.push(fullEntry);
       }
     });
   } catch (err) {
@@ -168,6 +175,15 @@ async function scrapeTheatricalTraining(seenSet, newItems) {
 }
 
 async function scrapeAndNotify() {
+  // Ensure Gist has the correct object format before scraping
+  const seenItems = await fetchSeenItems();
+
+  // Double check structure in case reset was just performed
+  if (!seenItems.unionly || !seenItems.theatrical) {
+    console.warn('Seen items missing expected structure. Resetting.');
+    await resetGistFile();
+  }
+
   const { unionly, theatrical } = await fetchSeenItems();
   const newUnionly = [];
   const newTheatrical = [];
@@ -176,7 +192,13 @@ async function scrapeAndNotify() {
   await scrapeTheatricalTraining(theatrical, newTheatrical);
 
   if (newUnionly.length > 0 || newTheatrical.length > 0) {
-    const msgBody = `*Unionly Items:*\n${newUnionly.map(i => `- ${i}`).join('\n') || 'None'}\n\n*TheatricalTraining.org Items:*\n${newTheatrical.map(i => `- ${i}`).join('\n') || 'None'}`;
+    const msgBody = `*Unionly Items:*
+${newUnionly.map(i => `- ${i}`).join('
+') || 'None'}
+
+*TheatricalTraining.org Items:*
+${newTheatrical.map(i => `- ${i}`).join('
+') || 'None'}`;
     await sendTelegramMessage(msgBody);
     await updateSeenItems(unionly, theatrical);
   } else {
