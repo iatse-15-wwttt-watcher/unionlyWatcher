@@ -97,10 +97,10 @@ async function scrapeTheatricalTraining(seenItems, newTheatricalTrainingItems) {
 
 async function scrapeAndNotify() {
   const seenItems = await fetchSeenItems();
-  const newItems = [];
+  const newItems = {Unionly:newUnionlyItems, `Theatrical Training Trust`:newTheatricalTrainingItems};
 
-  await scrapeUnionly(seenItems, newItems);
-  await scrapeTheatricalTraining(seenItems, newItems);
+  await scrapeUnionly(seenItems, newUnionlyItems);
+  await scrapeTheatricalTraining(seenItems, newTheatricalTrainingItems);
 
   if (newItems.length > 0) {
     const msgBody = `*New Items Found:*\n${newItems.map(i => `- ${i}`).join('\n')}`;
