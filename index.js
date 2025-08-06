@@ -16,7 +16,12 @@ async function fetchSeenItems() {
       }
     });
     const content = res.data.files[GIST_FILENAME].content;
-    const parsed = JSON.parse(content);
+    let parsed = {};
+    try {
+      parsed = JSON.parse(content);
+    } catch (parseErr) {
+      console.warn('Gist content is not valid JSON. Initializing empty object.');
+    }
     const unionlyItems = parsed && Array.isArray(parsed.unionly) ? parsed.unionly : [];
     const theatricalItems = parsed && Array.isArray(parsed.theatrical) ? parsed.theatrical : [];
     return {
@@ -61,7 +66,8 @@ async function sendTelegramMessage(message) {
   const payload = {
     chat_id: TELEGRAM_CHAT_ID,
     text: message,
-    parse_mode: 'Markdown'
+    parse_mode: 'Markdown',
+    disable_web_page_preview: false
   };
 
   try {
@@ -84,11 +90,14 @@ async function scrapeUnionly(seenSet, newItems) {
     console.log(`Found ${productDivs.length} items on Unionly:`);
 
     productDivs.each((i, el) => {
-      const text = $(el).text().trim().substring(0, 50);
-      console.log(`- ${text}`);
-      if (!seenSet.has(text)) {
-        seenSet.add(text);
-        newItems.push(text);
+      const text = $(el).text().trim().replace(/\s+/g, ' ').substring(0, 100);
+      const href = $(el).find('a').attr('href');
+      const link = href ? `https://unionly.io${href}` : '';
+      const entry = link ? `[${text}](${link})` : text;
+      console.log(`- ${entry}`);
+      if (!seenSet.has(entry)) {
+        seenSet.add(entry);
+        newItems.push(entry);
       }
     });
   } catch (err) {
@@ -105,11 +114,15 @@ async function scrapeTheatricalTraining(seenSet, newItems) {
     console.log(`Found ${headers.length} items on TheatricalTraining.org:`);
 
     headers.each((i, el) => {
-      const text = $(el).text().trim().substring(0, 50);
-      console.log(`- ${text}`);
-      if (!seenSet.has(text)) {
-        seenSet.add(text);
-        newItems.push(text);
+      const rawText = $(el).text();
+      const cleaned = rawText.replace(/[\n\t]+/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 100);
+      const href = $(el).find('a').attr('href');
+      const link = href ? `https://theatricaltraining.com${href}` : '';
+      const entry = link ? `[${cleaned}](${link})` : cleaned;
+      console.log(`- ${entry}`);
+      if (!seenSet.has(entry)) {
+        seenSet.add(entry);
+        newItems.push(entry);
       }
     });
   } catch (err) {
@@ -126,7 +139,7 @@ async function scrapeAndNotify() {
   await scrapeTheatricalTraining(theatrical, newTheatrical);
 
   if (newUnionly.length > 0 || newTheatrical.length > 0) {
-    const msgBody = `Unionly Items:\n${newUnionly.map(i => `- ${i}`).join('\n') || 'None'}\n\nTheatricalTraining.org Items:\n${newTheatrical.map(i => `- ${i}`).join('\n') || 'None'}`;
+    const msgBody = `*Unionly Items:*\n${newUnionly.map(i => `- ${i}`).join('\n') || 'None'}\n\n*TheatricalTraining.org Items:*\n${newTheatrical.map(i => `- ${i}`).join('\n') || 'None'}`;
     await sendTelegramMessage(msgBody);
     await updateSeenItems(unionly, theatrical);
   } else {
