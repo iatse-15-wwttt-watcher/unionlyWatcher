@@ -12,21 +12,19 @@ function escapeMarkdown(text) {
 }
 
 async function resetGistFile() {
-  const resetContent = JSON.stringify([[], []], null, 2); // [unionly, theatrical]
+  const resetContent = JSON.stringify([[], []], null, 2);
   try {
     await axios.patch(`https://api.github.com/gists/${GIST_ID}`, {
-      files: {
-        [GIST_FILENAME]: { content: resetContent }
-      }
+      files: { [GIST_FILENAME]: { content: resetContent } }
     }, {
       headers: {
         Authorization: `Bearer ${GIST_TOKEN}`,
         Accept: 'application/vnd.github+json'
       }
     });
-    console.warn('Gist file reset to nested array format.');
+    console.warn('Gist reset to clean nested array.');
   } catch (err) {
-    console.error('Failed to reset Gist file:', err.message);
+    console.error('Reset failed:', err.message);
   }
 }
 
@@ -38,21 +36,15 @@ async function fetchSeenItems() {
         Accept: 'application/vnd.github+json'
       }
     });
-    let parsed;
-    try {
-      parsed = JSON.parse(res.data.files[GIST_FILENAME].content);
-      if (!Array.isArray(parsed) || parsed.length !== 2) throw new Error();
-      return {
-        unionly: new Set(parsed[0]),
-        theatrical: new Set(parsed[1])
-      };
-    } catch {
-      console.warn('Malformed or missing Gist. Resetting...');
-      await resetGistFile();
-      return { unionly: new Set(), theatrical: new Set() };
-    }
+    const parsed = JSON.parse(res.data.files[GIST_FILENAME].content);
+    if (!Array.isArray(parsed) || parsed.length !== 2) throw new Error('Invalid JSON structure');
+
+    return {
+      unionly: new Set(parsed[0]),
+      theatrical: new Set(parsed[1])
+    };
   } catch (err) {
-    console.error('Failed to fetch seen items from Gist:', err.message);
+    console.error('Fetch failed or invalid Gist. Resetting...');
     await resetGistFile();
     return { unionly: new Set(), theatrical: new Set() };
   }
@@ -60,25 +52,22 @@ async function fetchSeenItems() {
 
 async function updateSeenItems(unionlySet, theatricalSet) {
   try {
-    const updatedContent = JSON.stringify([[...unionlySet], [...theatricalSet]], null, 2);
+    const safeArray = [Array.from(unionlySet), Array.from(theatricalSet)];
     await axios.patch(`https://api.github.com/gists/${GIST_ID}`, {
-      files: {
-        [GIST_FILENAME]: { content: updatedContent }
-      }
+      files: { [GIST_FILENAME]: { content: JSON.stringify(safeArray, null, 2) } }
     }, {
       headers: {
         Authorization: `Bearer ${GIST_TOKEN}`,
         Accept: 'application/vnd.github+json'
       }
     });
+    console.log('Gist updated successfully.');
   } catch (err) {
-    console.error('Failed to update seen items Gist:', err.message);
+    console.error('Failed to update Gist:', err.message);
   }
 }
 
 async function sendTelegramMessage(message) {
-  if (!message || !TELEGRAM_CHAT_ID || !TELEGRAM_BOT_TOKEN) return;
-
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
   const payload = {
     chat_id: TELEGRAM_CHAT_ID,
@@ -89,27 +78,32 @@ async function sendTelegramMessage(message) {
 
   try {
     await axios.post(url, payload);
-    console.log('Telegram message sent');
+    console.log('Telegram message sent.');
   } catch (err) {
     console.error('Telegram error:', err.message);
     if (err.response?.data) {
-      console.error('Telegram response:', JSON.stringify(err.response.data));
-      console.error('Message content:', message);
+      console.error('Telegram API response:', err.response.data);
     }
   }
+}
+
+function cleanText(text) {
+  return text.replace(/[\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 async function scrapeUnionly(seenSet, newItems) {
   try {
     const res = await axios.get('https://unionly.io/o/wwtt/store/products');
     const $ = cheerio.load(res.data);
-    const productDivs = $('div.w-full.max-w-sm.mx-auto.rounded-md.shadow-md.overflow-hidden');
+    const products = $('div.w-full.max-w-sm.mx-auto.rounded-md.shadow-md.overflow-hidden');
 
-    productDivs.each((i, el) => {
-      const text = $(el).text().replace(/[\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
+    products.each((_, el) => {
+      const text = cleanText($(el).text());
       const href = $(el).find('a').attr('href');
-      const link = href ? `https://unionly.io${href}` : '';
-      const entry = link ? `[${escapeMarkdown(text)}](${link})` : escapeMarkdown(text);
+      if (!href) return;
+
+      const link = `https://unionly.io${href}`;
+      const entry = `[${escapeMarkdown(text)}](${link})`;
 
       if (!seenSet.has(entry)) {
         seenSet.add(entry);
@@ -127,11 +121,13 @@ async function scrapeTheatricalTraining(seenSet, newItems) {
     const $ = cheerio.load(res.data);
     const headers = $('a.ee-event-header-lnk');
 
-    headers.each((i, el) => {
-      const text = $(el).text().replace(/[\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
+    headers.each((_, el) => {
+      const text = cleanText($(el).text());
       const href = $(el).attr('href');
-      const link = href ? `https://theatricaltraining.com${href}` : '';
-      const entry = link ? `[${escapeMarkdown(text)}](${link})` : escapeMarkdown(text);
+      if (!href) return;
+
+      const link = `https://theatricaltraining.com${href}`;
+      const entry = `[${escapeMarkdown(text)}](${link})`;
 
       if (!seenSet.has(entry)) {
         seenSet.add(entry);
@@ -145,18 +141,17 @@ async function scrapeTheatricalTraining(seenSet, newItems) {
 
 async function scrapeAndNotify() {
   const seenItems = await fetchSeenItems();
-  const unionlySet = seenItems.unionly;
-  const theatricalSet = seenItems.theatrical;
+  const { unionly, theatrical } = seenItems;
   const newUnionly = [];
   const newTheatrical = [];
 
-  await scrapeUnionly(unionlySet, newUnionly);
-  await scrapeTheatricalTraining(theatricalSet, newTheatrical);
+  await scrapeUnionly(unionly, newUnionly);
+  await scrapeTheatricalTraining(theatrical, newTheatrical);
 
-  if (newUnionly.length > 0 || newTheatrical.length > 0) {
+  if (newUnionly.length || newTheatrical.length) {
     const msg = `*Unionly Items:*\n${newUnionly.map(i => `- ${i}`).join('\n') || 'None'}\n\n*TheatricalTraining.org Items:*\n${newTheatrical.map(i => `- ${i}`).join('\n') || 'None'}`;
     await sendTelegramMessage(msg);
-    await updateSeenItems(unionlySet, theatricalSet);
+    await updateSeenItems(unionly, theatrical);
   } else {
     console.log('No new items found.');
   }
