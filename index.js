@@ -133,7 +133,7 @@ async function scrapeUnionly(seenSet, newItems) {
     productDivs.each((i, el) => {
       const rawText = $(el).text();
       const cleaned = rawText.replace(/[\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
-      const href = $(el).find('a').attr('href');
+      const href = $(el).attr('href');
       const link = href ? `https://unionly.io${href}` : '';
       const entryText = link ? `[${escapeMarkdown(cleaned)}](${link})` : escapeMarkdown(cleaned);
       const fullEntry = getTimestampedEntry(entryText);
@@ -152,7 +152,7 @@ async function scrapeTheatricalTraining(seenSet, newItems) {
   try {
     const res = await axios.get('https://theatricaltraining.com/#thecalendar');
     const $ = cheerio.load(res.data);
-    const headers = $('div.ee-event-header-lnk');
+    const headers = $('a.ee-event-header-lnk');
 
     console.log(`Found ${headers.length} items on TheatricalTraining.org:`);
 
