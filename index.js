@@ -6,7 +6,8 @@ const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 const GIST_TOKEN = process.env.GIST_TOKEN;
 const GIST_ID = '21539a315a95814d617a76c3e80f2622';
 const GIST_FILENAME = 'seenItems.json';
-let newItems = [];
+let newUnionlyItems = [];
+let newTheatricalTrainingItems = [];
 
 async function fetchSeenItems() {
   try {
@@ -58,7 +59,7 @@ async function sendTelegramMessage(message) {
   }
 }
 
-async function scrapeUnionly(seenItems, newItems) {
+async function scrapeUnionly(seenItems, newUnionlyItems) {
   try {
     const res = await axios.get('https://unionly.io/o/wwtt/store/products');
     const $ = cheerio.load(res.data);
@@ -68,7 +69,7 @@ async function scrapeUnionly(seenItems, newItems) {
       const text = $(el).text().trim().substring(0, 50);
       if (!seenItems.has(text)) {
         seenItems.add(text);
-        newItems.push(`Unionly: ${text}`);
+        newUnionlyItems.push(`Unionly: ${text}`);
       }
     });
   } catch (err) {
@@ -76,7 +77,7 @@ async function scrapeUnionly(seenItems, newItems) {
   }
 }
 
-async function scrapeTheatricalTraining(seenItems, newItems) {
+async function scrapeTheatricalTraining(seenItems, newTheatricalTrainingItems) {
   try {
     const res = await axios.get('https://theatricaltraining.com/#thecalendar');
     const $ = cheerio.load(res.data);
@@ -86,7 +87,7 @@ async function scrapeTheatricalTraining(seenItems, newItems) {
       const text = $(el).text().trim().substring(0, 50);
       if (!seenItems.has(text)) {
         seenItems.add(text);
-        newItems.push(`TheatricalTraining: ${text}`);
+        newTheatricalTrainingItems.push(`TheatricalTraining: ${text}`);
       }
     });
   } catch (err) {
