@@ -70,12 +70,7 @@ async function fetchSeenItems() {
 }
 
 async function updateSeenItems(unionlySet, theatricalSet) {
-  if (!unionlySet || !theatricalSet) return;
-  try {
-    const updatedContent = JSON.stringify({
-      unionly: [...unionlySet],
-      theatrical: [...theatricalSet]
-    }, null, 2);
+  if (!unionlySet || !theatricalSet || !(unionlySet instanceof Set) || !(theatricalSet instanceof, null, 2);
     console.log('Updating Gist with:', updatedContent);
     await axios.patch(`https://api.github.com/gists/${GIST_ID}`, {
       files: {
@@ -93,7 +88,8 @@ async function updateSeenItems(unionlySet, theatricalSet) {
 }
 
 function escapeMarkdown(text) {
-  return text.replace(/([_\-\*\[\]()~`>#+=|{}.!])/g, '\\$1');
+  return text.replace(/([_\-\*\[\]\(\)~`>#+=|{}.!])/g, '\\$1');
+}.!])/g, '\\$1');
 }
 
 async function sendTelegramMessage(message) {
@@ -159,7 +155,7 @@ async function scrapeTheatricalTraining(seenSet, newItems) {
     headers.each((i, el) => {
       const rawText = $(el).text();
       const cleaned = rawText.replace(/[\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
-      const href = $(el).find('a').attr('href');
+      const href = $(el).attr('href');
       const link = href ? `https://theatricaltraining.com${href}` : '';
       const entryText = link ? `[${escapeMarkdown(cleaned)}](${link})` : escapeMarkdown(cleaned);
       const fullEntry = getTimestampedEntry(entryText);
