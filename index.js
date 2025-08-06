@@ -38,6 +38,7 @@ async function fetchSeenItems() {
     let parsed;
     try {
       parsed = JSON.parse(content);
+      console.log('Raw parsed Gist content:', parsed);
       if (
         typeof parsed !== 'object' ||
         parsed === null ||
@@ -58,6 +59,7 @@ async function fetchSeenItems() {
     };
   } catch (err) {
     console.error('Failed to fetch seen items from Gist:', err.message);
+    await resetGistFile();
     return { unionly: new Set(), theatrical: new Set() };
   }
 }
@@ -85,7 +87,7 @@ async function updateSeenItems(unionlySet, theatricalSet) {
 }
 
 function escapeMarkdown(text) {
-  return text.replace(/([_\*\[\]\(\)~`>#+\-=|{}.!])/g, '\\$1');
+  return text.replace(/([_\-*\[\]()~`>#+=|{}.!])/g, '\\$1');
 }
 
 async function sendTelegramMessage(message) {
@@ -122,10 +124,11 @@ async function scrapeUnionly(seenSet, newItems) {
     console.log(`Found ${productDivs.length} items on Unionly:`);
 
     productDivs.each((i, el) => {
-      const text = $(el).text().trim().replace(/\s+/g, ' ').substring(0, 100);
+      const rawText = $(el).text();
+      const cleaned = rawText.replace(/[\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
       const href = $(el).find('a').attr('href');
       const link = href ? `https://unionly.io${href}` : '';
-      const entry = link ? `[${escapeMarkdown(text)}](${link})` : escapeMarkdown(text);
+      const entry = link ? `[${escapeMarkdown(cleaned)}](${link})` : escapeMarkdown(cleaned);
       console.log(`- ${entry}`);
       if (!seenSet.has(entry)) {
         seenSet.add(entry);
@@ -147,7 +150,7 @@ async function scrapeTheatricalTraining(seenSet, newItems) {
 
     headers.each((i, el) => {
       const rawText = $(el).text();
-      const cleaned = rawText.replace(/[\n\t]+/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 100);
+      const cleaned = rawText.replace(/[\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
       const href = $(el).find('a').attr('href');
       const link = href ? `https://theatricaltraining.com${href}` : '';
       const entry = link ? `[${escapeMarkdown(cleaned)}](${link})` : escapeMarkdown(cleaned);
