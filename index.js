@@ -65,12 +65,13 @@ async function fetchSeenItems() {
 }
 
 async function updateSeenItems(unionlySet, theatricalSet) {
+  if (!unionlySet || !theatricalSet) return;
   try {
     const updatedContent = JSON.stringify({
       unionly: [...unionlySet],
       theatrical: [...theatricalSet]
     }, null, 2);
-
+    console.log('Updating Gist with:', updatedContent);
     await axios.patch(`https://api.github.com/gists/${GIST_ID}`, {
       files: {
         [GIST_FILENAME]: { content: updatedContent }
@@ -111,6 +112,7 @@ async function sendTelegramMessage(message) {
     console.error('Telegram error:', err.message);
     if (err.response?.data) {
       console.error('Telegram response:', JSON.stringify(err.response.data));
+      console.error('Message that caused the error:', message);
     }
   }
 }
@@ -177,7 +179,6 @@ async function scrapeAndNotify() {
     const msgBody = `*Unionly Items:*\n${newUnionly.map(i => `- ${i}`).join('\n') || 'None'}\n\n*TheatricalTraining.org Items:*\n${newTheatrical.map(i => `- ${i}`).join('\n') || 'None'}`;
     await sendTelegramMessage(msgBody);
     await updateSeenItems(unionly, theatrical);
-    updateSeenItems?{console.log(updateSeenItems)}:"";
   } else {
     console.log('No new items found.');
   }
