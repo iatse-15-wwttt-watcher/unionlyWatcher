@@ -57,10 +57,7 @@ async function sendTelegramMessage(message) {
   }
 }
 
-async function scrapeAndNotify() {
-  const seenItems = await fetchSeenItems();
-  const newItems = [];
-
+async function scrapeUnionly(seenItems, newItems) {
   try {
     const res = await axios.get('https://unionly.io/o/wwtt/store/products');
     const $ = cheerio.load(res.data);
@@ -70,19 +67,45 @@ async function scrapeAndNotify() {
       const text = $(el).text().trim().substring(0, 50);
       if (!seenItems.has(text)) {
         seenItems.add(text);
-        newItems.push(text);
+        newItems.push(`Unionly: ${text}`);
       }
     });
-
-    if (newItems.length > 0) {
-      const msgBody = `*New Unionly items:*\n${newItems.map(i => `- ${i}`).join('\n')}`;
-      await sendTelegramMessage(msgBody);
-      await updateSeenItems(seenItems);
-    } else {
-      console.log('No new items found.');
-    }
   } catch (err) {
-    console.error('Error during scraping or messaging:', err.message);
+    console.error('Error scraping Unionly:', err.message);
+  }
+}
+
+async function scrapeTheatricalTraining(seenItems, newItems) {
+  try {
+    const res = await axios.get('https://theatricaltraining.com/#thecalendar');
+    const $ = cheerio.load(res.data);
+    const articles = $('div.fl-module-content.fl-node-content article');
+
+    articles.each((i, el) => {
+      const text = $(el).text().trim().substring(0, 50);
+      if (!seenItems.has(text)) {
+        seenItems.add(text);
+        newItems.push(`TheatricalTraining: ${text}`);
+      }
+    });
+  } catch (err) {
+    console.error('Error scraping Theatrical Training:', err.message);
+  }
+}
+
+async function scrapeAndNotify() {
+  const seenItems = await fetchSeenItems();
+  const newItems = [];
+
+  await scrapeUnionly(seenItems, newItems);
+  await scrapeTheatricalTraining(seenItems, newItems);
+
+  if (newItems.length > 0) {
+    const msgBody = `*New Items Found:*\n${newItems.map(i => `- ${i}`).join('\n')}`;
+    await sendTelegramMessage(msgBody);
+    await updateSeenItems(seenItems);
+  } else {
+    console.log('No new items found.');
   }
 }
 
