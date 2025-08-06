@@ -12,7 +12,7 @@ function escapeMarkdown(text) {
 }
 
 async function resetGistFile() {
-  const resetContent = JSON.stringify({ unionly: [], theatrical: [] }, null, 2);
+  const resetContent = JSON.stringify([[], []], null, 2); // [unionly, theatrical]
   try {
     await axios.patch(`https://api.github.com/gists/${GIST_ID}`, {
       files: {
@@ -24,7 +24,7 @@ async function resetGistFile() {
         Accept: 'application/vnd.github+json'
       }
     });
-    console.warn('Gist file reset to default structure.');
+    console.warn('Gist file reset to nested array format.');
   } catch (err) {
     console.error('Failed to reset Gist file:', err.message);
   }
@@ -38,28 +38,19 @@ async function fetchSeenItems() {
         Accept: 'application/vnd.github+json'
       }
     });
-    const content = res.data.files[GIST_FILENAME].content;
     let parsed;
     try {
-      parsed = JSON.parse(content);
-      if (
-        typeof parsed !== 'object' ||
-        parsed === null ||
-        Array.isArray(parsed) ||
-        !Array.isArray(parsed.unionly) ||
-        !Array.isArray(parsed.theatrical)
-      ) {
-        throw new Error('Invalid Gist structure');
-      }
+      parsed = JSON.parse(res.data.files[GIST_FILENAME].content);
+      if (!Array.isArray(parsed) || parsed.length !== 2) throw new Error();
+      return {
+        unionly: new Set(parsed[0]),
+        theatrical: new Set(parsed[1])
+      };
     } catch {
-      console.warn('Malformed Gist content. Resetting...');
+      console.warn('Malformed or missing Gist. Resetting...');
       await resetGistFile();
-      parsed = { unionly: [], theatrical: [] };
+      return { unionly: new Set(), theatrical: new Set() };
     }
-    return {
-      unionly: new Set(parsed.unionly),
-      theatrical: new Set(parsed.theatrical)
-    };
   } catch (err) {
     console.error('Failed to fetch seen items from Gist:', err.message);
     await resetGistFile();
@@ -68,15 +59,8 @@ async function fetchSeenItems() {
 }
 
 async function updateSeenItems(unionlySet, theatricalSet) {
-  if (!(unionlySet instanceof Set) || !(theatricalSet instanceof Set)) {
-    console.error('Invalid sets passed to updateSeenItems. Aborting.');
-    return;
-  }
   try {
-    const updatedContent = JSON.stringify({
-      unionly: [...unionlySet],
-      theatrical: [...theatricalSet]
-    }, null, 2);
+    const updatedContent = JSON.stringify([[...unionlySet], [...theatricalSet]], null, 2);
     await axios.patch(`https://api.github.com/gists/${GIST_ID}`, {
       files: {
         [GIST_FILENAME]: { content: updatedContent }
@@ -93,10 +77,7 @@ async function updateSeenItems(unionlySet, theatricalSet) {
 }
 
 async function sendTelegramMessage(message) {
-  if (!message || !TELEGRAM_CHAT_ID || !TELEGRAM_BOT_TOKEN) {
-    console.error('Missing Telegram configuration or message.');
-    return;
-  }
+  if (!message || !TELEGRAM_CHAT_ID || !TELEGRAM_BOT_TOKEN) return;
 
   const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
   const payload = {
