@@ -6,8 +6,6 @@ const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 const GIST_TOKEN = process.env.GIST_TOKEN;
 const GIST_ID = '21539a315a95814d617a76c3e80f2622';
 const GIST_FILENAME = 'seenItems.json';
-let newUnionlyItems = [];
-let newTheatricalTrainingItems = [];
 
 async function fetchSeenItems() {
   try {
@@ -18,16 +16,24 @@ async function fetchSeenItems() {
       }
     });
     const content = res.data.files[GIST_FILENAME].content;
-    return new Set(JSON.parse(content));
+    const parsed = JSON.parse(content);
+    return {
+      unionly: new Set(parsed.unionly || []),
+      theatrical: new Set(parsed.theatrical || [])
+    };
   } catch (err) {
     console.error('Failed to fetch seen items from Gist:', err.message);
-    return new Set();
+    return { unionly: new Set(), theatrical: new Set() };
   }
 }
 
-async function updateSeenItems(seenItemsSet) {
+async function updateSeenItems(unionlySet, theatricalSet) {
   try {
-    const updatedContent = JSON.stringify([...seenItemsSet], null, 2);
+    const updatedContent = JSON.stringify({
+      unionly: [...unionlySet],
+      theatrical: [...theatricalSet]
+    }, null, 2);
+
     await axios.patch(`https://api.github.com/gists/${GIST_ID}`, {
       files: {
         [GIST_FILENAME]: { content: updatedContent }
@@ -59,7 +65,7 @@ async function sendTelegramMessage(message) {
   }
 }
 
-async function scrapeUnionly(seenItems, newUnionlyItems) {
+async function scrapeUnionly(seenSet, newItems) {
   try {
     const res = await axios.get('https://unionly.io/o/wwtt/store/products');
     const $ = cheerio.load(res.data);
@@ -67,9 +73,9 @@ async function scrapeUnionly(seenItems, newUnionlyItems) {
 
     productDivs.each((i, el) => {
       const text = $(el).text().trim().substring(0, 50);
-      if (!seenItems.has(text)) {
-        seenItems.add(text);
-        newUnionlyItems.push(`Unionly: ${text}`);
+      if (!seenSet.has(text)) {
+        seenSet.add(text);
+        newItems.push(text);
       }
     });
   } catch (err) {
@@ -77,17 +83,17 @@ async function scrapeUnionly(seenItems, newUnionlyItems) {
   }
 }
 
-async function scrapeTheatricalTraining(seenItems, newTheatricalTrainingItems) {
+async function scrapeTheatricalTraining(seenSet, newItems) {
   try {
     const res = await axios.get('https://theatricaltraining.com/#thecalendar');
     const $ = cheerio.load(res.data);
-    const articles = $('div.fl-module-content.fl-node-content .ee-event-header-lnk');
+    const headers = $('div.ee-event-header-lnk');
 
-    articles.each((i, el) => {
+    headers.each((i, el) => {
       const text = $(el).text().trim().substring(0, 50);
-      if (!seenItems.has(text)) {
-        seenItems.add(text);
-        newTheatricalTrainingItems.push(`TheatricalTraining: ${text}`);
+      if (!seenSet.has(text)) {
+        seenSet.add(text);
+        newItems.push(text);
       }
     });
   } catch (err) {
@@ -96,16 +102,17 @@ async function scrapeTheatricalTraining(seenItems, newTheatricalTrainingItems) {
 }
 
 async function scrapeAndNotify() {
-  const seenItems = await fetchSeenItems();
-  const newItems = {Unionly:newUnionlyItems, `Theatrical Training Trust`:newTheatricalTrainingItems};
+  const { unionly, theatrical } = await fetchSeenItems();
+  const newUnionly = [];
+  const newTheatrical = [];
 
-  await scrapeUnionly(seenItems, newUnionlyItems);
-  await scrapeTheatricalTraining(seenItems, newTheatricalTrainingItems);
+  await scrapeUnionly(unionly, newUnionly);
+  await scrapeTheatricalTraining(theatrical, newTheatrical);
 
-  if (newItems.length > 0) {
-    const msgBody = `*New Items Found:*\n${newItems.map(i => `- ${i}`).join('\n')}`;
+  if (newUnionly.length > 0 || newTheatrical.length > 0) {
+    const msgBody = `Unionly Items:\n${newUnionly.map(i => `- ${i}`).join('\n') || 'None'}\n\nTheatricalTraining.org Items:\n${newTheatrical.map(i => `- ${i}`).join('\n') || 'None'}`;
     await sendTelegramMessage(msgBody);
-    await updateSeenItems(seenItems);
+    await updateSeenItems(unionly, theatrical);
   } else {
     console.log('No new items found.');
   }
