@@ -79,7 +79,7 @@ async function scrapeTheatricalTraining(seenItems, newItems) {
   try {
     const res = await axios.get('https://theatricaltraining.com/#thecalendar');
     const $ = cheerio.load(res.data);
-    const articles = $('div.fl-module-content.fl-node-content article');
+    const articles = $('div.fl-module-content.fl-node-content .ee-event-header-lnk');
 
     articles.each((i, el) => {
       const text = $(el).text().trim().substring(0, 50);
