@@ -93,26 +93,10 @@ async function updateSeenItems(unionlySet, theatricalSet) {
   } catch (err) {
     console.error('Failed to update seen items Gist:', err.message);
   }
-}, null, 2);
-    console.log('Updating Gist with:', updatedContent);
-    await axios.patch(`https://api.github.com/gists/${GIST_ID}`, {
-      files: {
-        [GIST_FILENAME]: { content: updatedContent }
-      }
-    }, {
-      headers: {
-        Authorization: `Bearer ${GIST_TOKEN}`,
-        Accept: 'application/vnd.github+json'
-      }
-    });
-  } catch (err) {
-    console.error('Failed to update seen items Gist:', err.message);
-  }
 }
 
 function escapeMarkdown(text) {
-  return text.replace(/([_\-\*\[\]\(\)~`>#+=|{}.!])/g, '\$1');
-}.!])/g, '\\$1');
+  return text.replace(/([_\-\*\[\]\(\)~`>#+=|{}.!])/g, '\\$1');
 }
 
 async function sendTelegramMessage(message) {
@@ -152,7 +136,7 @@ async function scrapeUnionly(seenSet, newItems) {
     productDivs.each((i, el) => {
       const rawText = $(el).text();
       const cleaned = rawText.replace(/[\n\t]+/g, ' ').replace(/\s+/g, ' ').trim();
-      const href = $(el).attr('href');
+      const href = $(el).find('a').attr('href');  // ← fixed this line
       const link = href ? `https://unionly.io${href}` : '';
       const entryText = link ? `[${escapeMarkdown(cleaned)}](${link})` : escapeMarkdown(cleaned);
       const fullEntry = getTimestampedEntry(entryText);
@@ -194,10 +178,7 @@ async function scrapeTheatricalTraining(seenSet, newItems) {
 }
 
 async function scrapeAndNotify() {
-  // Ensure Gist has the correct object format before scraping
   const seenItems = await fetchSeenItems();
-
-  // Double check structure in case reset was just performed
   if (!seenItems.unionly || !seenItems.theatrical) {
     console.warn('Seen items missing expected structure. Resetting.');
     await resetGistFile();
@@ -211,18 +192,8 @@ async function scrapeAndNotify() {
   await scrapeTheatricalTraining(theatrical, newTheatrical);
 
   if (newUnionly.length > 0 || newTheatrical.length > 0) {
-    const msgBody = `*Unionly Items:*
-${newUnionly.map(i => `- ${i}`).join('
-') || 'None'}
-
-*TheatricalTraining.org Items:*
-${newTheatrical.map(i => `- ${i}`).join('
-') || 'None'}`;
+    const msgBody = `*Unionly Items:*\n${newUnionly.map(i => `- ${i}`).join('\n') || 'None'}\n\n*TheatricalTraining.org Items:*\n${newTheatrical.map(i => `- ${i}`).join('\n') || 'None'}`;
     await sendTelegramMessage(msgBody);
     await updateSeenItems(unionly, theatrical);
   } else {
-    console.log('No new items found.');
-  }
-}
-
-scrapeAndNotify();
+    consol
