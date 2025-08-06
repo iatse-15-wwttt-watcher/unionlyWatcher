@@ -70,7 +70,30 @@ async function fetchSeenItems() {
 }
 
 async function updateSeenItems(unionlySet, theatricalSet) {
-  if (!unionlySet || !theatricalSet || !(unionlySet instanceof Set) || !(theatricalSet instanceof, null, 2);
+  if (!unionlySet || !theatricalSet || !(unionlySet instanceof Set) || !(theatricalSet instanceof Set)) {
+    console.error('Invalid sets passed to updateSeenItems. Aborting update.');
+    return;
+  }
+  try {
+    const updatedContent = JSON.stringify({
+      unionly: [...unionlySet],
+      theatrical: [...theatricalSet]
+    }, null, 2);
+    console.log('Updating Gist with:', updatedContent);
+    await axios.patch(`https://api.github.com/gists/${GIST_ID}`, {
+      files: {
+        [GIST_FILENAME]: { content: updatedContent }
+      }
+    }, {
+      headers: {
+        Authorization: `Bearer ${GIST_TOKEN}`,
+        Accept: 'application/vnd.github+json'
+      }
+    });
+  } catch (err) {
+    console.error('Failed to update seen items Gist:', err.message);
+  }
+}, null, 2);
     console.log('Updating Gist with:', updatedContent);
     await axios.patch(`https://api.github.com/gists/${GIST_ID}`, {
       files: {
@@ -88,7 +111,7 @@ async function updateSeenItems(unionlySet, theatricalSet) {
 }
 
 function escapeMarkdown(text) {
-  return text.replace(/([_\-\*\[\]\(\)~`>#+=|{}.!])/g, '\\$1');
+  return text.replace(/([_\-\*\[\]\(\)~`>#+=|{}.!])/g, '\$1');
 }.!])/g, '\\$1');
 }
 
